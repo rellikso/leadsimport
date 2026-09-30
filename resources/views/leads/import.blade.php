@@ -1,23 +1,45 @@
-<!DOCTYPE html>
-<html lang="{{ env('APP_LOCALE') }}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Import leads</title>
-</head>
-<body>
-<h1>Import leads</h1>
+@extends('layouts.app')
 
-<form method="POST" action="{{ route('leads.import.store') }}" enctype="multipart/form-data">
+@section('content') <h1 class="mb-4">Import leads</h1>
+
+<form
+        method="POST"
+        action="{{ route('leads.import.store') }}"
+        enctype="multipart/form-data"
+        class="card p-4"
+        id="import-form"
+>
     @csrf
 
-    <input type="file" name="file" accept=".csv,text/csv" required>
+    <div class="mb-3">
+        <label for="file" class="form-label">CSV file</label>
 
-    <button type="submit">Import</button>
+        <input
+                type="file"
+                id="file"
+                name="file"
+                accept=".csv,text/csv"
+                class="form-control"
+                required
+        >
+    </div>
+
+    <div>
+        <button type="submit" class="btn btn-primary" id="import-button">
+            Import
+        </button>
+
+        <span
+                class="spinner-border spinner-border-sm text-primary ms-2 d-none"
+                id="import-spinner"
+                role="status"
+                aria-hidden="true"
+        ></span>
+    </div>
 </form>
 
 @if (session('import_error'))
-    <div>
+    <div class="alert alert-danger mt-4">
         <strong>Import failed:</strong>
         {{ session('import_error') }}
     </div>
@@ -26,13 +48,24 @@
 @if (session('import_result'))
     @php($result = session('import_result'))
 
-    <h2>Import completed</h2>
+    <div class="card mt-4">
+        <div class="card-body">
+            <h2 class="h5">Import completed</h2>
 
-    <ul>
-        <li>Processed: {{ $result['processed'] }}</li>
-        <li>Inserted: {{ $result['inserted'] }}</li>
-        <li>Time: {{ $result['duration'] }} sec.</li>
-    </ul>
+            <ul class="mb-0">
+                <li>Processed: {{ $result['processed'] }}</li>
+                <li>Inserted: {{ $result['inserted'] }}</li>
+                <li>Time: {{ $result['duration'] }} sec.</li>
+            </ul>
+        </div>
+    </div>
 @endif
-</body>
-</html>
+
+@endsection
+
+@push('scripts') <script>
+    document.getElementById('import-form').addEventListener('submit', function () {
+        document.getElementById('import-button').disabled = true;
+        document.getElementById('import-spinner').classList.remove('d-none');
+    }); </script>
+@endpush
