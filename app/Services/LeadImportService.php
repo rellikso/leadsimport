@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Exceptions\LeadImportException;
 use App\Models\Lead;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 
 class LeadImportService
 {
@@ -34,48 +36,68 @@ class LeadImportService
         $handle = fopen($file->getRealPath(), 'rb');
 
         if ($handle === false) {
-            throw new \RuntimeException('Unable to open import file.');
+            throw new LeadImportException('Unable to open import file.');
         }
 
         try {
             $headers = fgetcsv($handle);
 
             if ($headers === false) {
-                throw new \RuntimeException('The import file is empty.');
+                throw new LeadImportException('The import file is empty.');
             }
 
             $headers = array_map('trim', $headers);
 
             if ($headers !== self::EXPECTED_HEADERS) {
-                throw new \RuntimeException('Invalid CSV header.');
+                throw new LeadImportException('Invalid CSV header.');
             }
 
-            $batch = [];
-            $processed = 0;
-            $inserted = 0;
+            // Validate CSV structure before writing anything.
+            $rowNumber = 1;
 
             while (($row = fgetcsv($handle)) !== false) {
+                $rowNumber++;
+
                 if ($row === [null]) {
                     continue;
                 }
 
-                $data = $this->mapRow($headers, $row);
-
-                $batch[] = $data;
-                $processed++;
-
-                if (count($batch) >= self::BATCH_SIZE) {
-                    Lead::query()->insert($batch);
-
-                    $inserted += count($batch);
-                    $batch = [];
+                if (count($row) !== count($headers)) {
+                    throw new LeadImportException(
+                        "Invalid column count on CSV row {$rowNumber}."
+                    );
                 }
             }
 
-            if ($batch !== []) {
-                Lead::query()->insert($batch);
-                $inserted += count($batch);
-            }
+            rewind($handle);
+            fgetcsv($handle);
+
+            $processed = 0;
+            $inserted = 0;
+
+            DB::transaction(function () use ($handle, $headers, &$processed, &$inserted) {
+                $batch = [];
+
+                while (($row = fgetcsv($handle)) !== false) {
+                    if ($row === [null]) {
+                        continue;
+                    }
+
+                    $batch[] = $this->mapRow($headers, $row);
+                    $processed++;
+
+                    if (count($batch) >= self::BATCH_SIZE) {
+                        Lead::query()->insert($batch);
+                        $inserted += count($batch);
+                        $batch = [];
+                    }
+                }
+
+                if ($batch !== []) {
+                    Lead::query()->insert($batch);
+                    $inserted += count($batch);
+                }
+            });
         } finally {
             fclose($handle);
         }
@@ -83,7 +105,6 @@ class LeadImportService
         return [
             'processed' => $processed,
             'inserted' => $inserted,
-            'errors' => 0,
             'duration' => round(microtime(true) - $startedAt, 3),
         ];
     }
@@ -93,7 +114,7 @@ class LeadImportService
         $data = array_combine($headers, $row);
 
         if ($data === false) {
-            throw new \RuntimeException('Invalid CSV row.');
+            throw new LeadImportException('Invalid CSV row.');
         }
 
         $budget = $data['budget_uah'] ?? null;

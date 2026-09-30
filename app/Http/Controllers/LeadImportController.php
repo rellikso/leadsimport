@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\LeadImportException;
 use App\Services\LeadImportService;
 use Illuminate\Http\Request;
 
@@ -27,10 +28,8 @@ class LeadImportController extends Controller
             $result = $this->importService->import(
                 $request->file('file')
             );
-        } catch (\Throwable $e) {
-            return back()
-                ->withInput()
-                ->with('import_error', $e->getMessage());
+        } catch (LeadImportException $e) {
+            return back()->with('import_error', $e->getMessage());
         }
 
         return back()->with('import_result', $result);

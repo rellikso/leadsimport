@@ -16,6 +16,13 @@
     <button type="submit">Import</button>
 </form>
 
+@if (session('import_error'))
+    <div>
+        <strong>Import failed:</strong>
+        {{ session('import_error') }}
+    </div>
+@endif
+
 @if (session('import_result'))
     @php($result = session('import_result'))
 
@@ -24,7 +31,6 @@
     <ul>
         <li>Processed: {{ $result['processed'] }}</li>
         <li>Inserted: {{ $result['inserted'] }}</li>
-        <li>Errors: {{ $result['errors'] }}</li>
         <li>Time: {{ $result['duration'] }} sec.</li>
     </ul>
 @endif
