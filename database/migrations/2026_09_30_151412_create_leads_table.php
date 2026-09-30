@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('leads', function (Blueprint $table) {
             $table->id();
 
-            $table->string('external_id')->unique();
+            $table->string('external_id')->index();
             $table->dateTime('created_at');
             $table->string('first_name');
             $table->string('last_name');
